@@ -11,6 +11,8 @@ from django.contrib.auth import get_user
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
+
+
 # Create your views here.
 
 memory=ConversationBufferMemory()
