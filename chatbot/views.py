@@ -38,38 +38,40 @@ custom_prompt = PromptTemplate(
 )
 
 API_URL = "http://localhost:11434/api/generate"
-API_KEY="LA-9d8ef9653cd14e4bab1becd540f9396a3dd2daba3ba649dca926ca4cbeb750c1"
+# API_KEY="LA-9d8ef9653cd14e4bab1becd540f9396a3dd2daba3ba649dca926ca4cbeb750c1"
 
 def query_model(message):
     payload = {
         "model": "llama3.2",
         "prompt": message,  # Make sure the input parameter matches the expected one
+        "stream":False
     }
     print("Payload:", payload)
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
         "Content-Type": "application/json"
     }
     response = requests.post(API_URL, json=payload, headers=headers)
-    try:
-        response_parts = response.text.strip().split('\n')
+    response=json.loads(response.text)
+    return response["response"]
+    # try:
+    #     response_parts = response.text.strip().split('\n')
 
-        parsed_responses = []
-        for part in response_parts:
-            try:
-                response_json = json.loads(part)  # Parse each part as JSON                # You can collect and process individual responses here
-                response_part = response_json.get("response", "")
-                parsed_responses.append(response_part)
-            except json.decoder.JSONDecodeError as e:
-                print(f"Error decoding JSON part: {e}")
+    #     parsed_responses = []
+    #     for part in response_parts:
+    #         try:
+    #             response_json = json.loads(part)  # Parse each part as JSON                # You can collect and process individual responses here
+    #             response_part = response_json.get("response", "")
+    #             parsed_responses.append(response_part)
+    #         except json.decoder.JSONDecodeError as e:
+    #             print(f"Error decoding JSON part: {e}")
         
-        full_response = " ".join(parsed_responses)
-        return full_response
+    #     full_response = " ".join(parsed_responses)
+    #     return full_response
 
-    except Exception as e:
-        print("General Error:", e)
-        return f"An error occurred: {e}"
+    # except Exception as e:
+    #     print("General Error:", e)
+    #     return f"An error occurred: {e}"
 
 llm=ChatOllama(model="llama3.2",temperature=0.1)
 conversation_buf = ConversationChain(
@@ -94,8 +96,9 @@ def chatbot(request):
     if request.method=='POST':
         message=request.POST.get('message')
         # prompt=JsonResponse({"model":"llam3.2:3b",'prompt':message})
-        # response=ask_llama(message)
-        response=query_model(message)
+        response=ask_llama(message)['response']
+    
+        # response=query_model(message)
         chat=Chat(user=request.user,message=message,response=response,creared_at=timezone.now())
         chat.save()
         return JsonResponse({'message':message,'response':response})
@@ -111,6 +114,14 @@ def login(request):
         if user is not None:
             memory.clear()
             auth.login(request,user)
+            chats=Chat.objects.filter(user=request.user)
+            chat_hist=[]
+            for chat in chats:
+                chat_hist.append(f'User: {chat.message}\nAssistant: {chat.response}')
+            if len(chat_hist)>0:
+                memory.clear()
+                for hist in chat_hist:
+                    memory.save_context({"input":hist.split('\n')[0]},{"output":hist.split('\n')[1]})
             return redirect('chatbot')
         else:
             error_message='Invalid user'

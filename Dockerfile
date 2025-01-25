@@ -21,4 +21,4 @@ COPY .env .env
 EXPOSE 8000
 
 # Ensure Ollama API is accessible before starting Django
-CMD ["bash", "-c", "until curl -s http://localhost:11434/api/generate; do echo 'Waiting for Ollama API...'; sleep 2; done && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+CMD ["bash", "-c", "until curl -s http://localhost:11434; do echo 'Waiting for Ollama API...'; sleep 2; done && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
