@@ -93,39 +93,42 @@ def chatbot(request):
         # Handle anonymous user case
         return redirect('register')  # Or some other fallback logic
     chats=Chat.objects.filter(user=request.user)
+    new_session = request.session.pop('session', False)
+    session_id = request.session.get('session_id')
+    print(session_id)
     if request.method=='POST':
         message=request.POST.get('message')
         # prompt=JsonResponse({"model":"llam3.2:3b",'prompt':message})
         response=ask_llama(message)['response']
-    
         # response=query_model(message)
-        chat=Chat(user=request.user,message=message,response=response,creared_at=timezone.now())
+        chat=Chat(user=request.user,message=message,response=response,created_at=timezone.now(),session_id=session_id)
         chat.save()
         return JsonResponse({'message':message,'response':response})
-    return render(request,'chatbot.html',{'chats':chats})
+    return render(request,'chatbot.html',{'chats':chats,'new_session': new_session})
 
 
+import uuid
 
 def login(request):
     if request.method=='POST':
         username=request.POST['username']
         password=request.POST['password']
+        try:
+            user=User.objects.get(username=username)
+        except:
+            error_message="Invalid user"
+            return render(request,'login.html',{'error_message':error_message})
         user=auth.authenticate(request,username=username,password=password)
         if user is not None:
             memory.clear()
             auth.login(request,user)
-            chats=Chat.objects.filter(user=request.user)
-            chat_hist=[]
-            for chat in chats:
-                chat_hist.append(f'User: {chat.message}\nAssistant: {chat.response}')
-            if len(chat_hist)>0:
-                memory.clear()
-                for hist in chat_hist:
-                    memory.save_context({"input":hist.split('\n')[0]},{"output":hist.split('\n')[1]})
+            session_id = str(uuid.uuid4())
+            request.session['session']=True
+            request.session['session_id'] = session_id
             return redirect('chatbot')
         else:
-            error_message='Invalid user'
-            return render(request,'register.html',{'error_message':error_message})
+            error_message='Incorrect password'
+            return render(request,'login.html',{'error_message':error_message})
     else:
         return render(request,'login.html')
 
@@ -133,29 +136,46 @@ def login(request):
 
 
 
+from django.contrib import auth
+from django.contrib.auth.models import User
+from django.shortcuts import render, redirect
+
 def register(request):
-    if request.method=='POST':
-        username=request.POST['username']
-        email=request.POST['email']
-        password1=request.POST['password1']
-        password2=request.POST['password2']
+    if request.method == 'POST':
+        username = request.POST['username']
+        email = request.POST['email']
+        password1 = request.POST['password1']
+        password2 = request.POST['password2']
 
-        if password1==password2:
-            try:
-                user=User.objects.create_user(username,email,password1)
-                user.save()
-                auth.login(request,user)
-                memory.clear()
-                return redirect('chatbot')
-                
-            except:
-                error_message='error creating account'
-                return render(request,'register.html',{'error_message':error_message})
+        # Check if passwords match
+        if password1 != password2:
+            error_message = 'Passwords do not match'
+            return render(request, 'register.html', {'error_message': error_message})
 
-        else:
-            error_message='password dont match'
-            return render(request,'register.html',{'error_message':error_message})
-    return render(request,'register.html')
+        # Check if the username already exists
+        if User.objects.filter(username=username).exists():
+            error_message = 'Username already exists'
+            return render(request, 'register.html', {'error_message': error_message})
+
+        # Check if the email already exists
+        if User.objects.filter(email=email).exists():
+            error_message = 'Email already exists'
+            return render(request, 'register.html', {'error_message': error_message})
+
+        # Create the user
+        try:
+            user = User.objects.create_user(username, email, password1)
+            user.save()
+            auth.login(request, user)
+            memory.clear()
+            return redirect('chatbot')
+        except Exception as e:
+            # Handle any unexpected errors
+            error_message = f'Error creating account: {str(e)}'
+            return render(request, 'register.html', {'error_message': error_message})
+
+    # Render the registration page for GET requests
+    return render(request, 'register.html')
 
 def logout(request):
     memory.clear()

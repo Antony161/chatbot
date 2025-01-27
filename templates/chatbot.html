@@ -1,6 +1,30 @@
 {% extends 'base.html' %}
 
 {% block styles %}
+<script>
+  // Function to scroll to the bottom of the page
+  function scrollToBottom() {
+      window.scrollTo(0, document.body.scrollHeight);
+  }
+  function scrollToResponse() {
+            const chatContainer = document.getElementById('li');
+            // Scroll to the bottom of the chat container
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+  // Scroll to the bottom when the page loads
+  window.onload = scrollToBottom;
+  window.onkeypress=scrollToBottom;
+  const observer = new MutationObserver(function(mutationsList, observer) {
+  // This will trigger the scroll when any DOM mutation occurs
+  scrollToBottom();
+});  observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+  attributes: true,
+  characterData: true
+});
+</script>
 <style>
     body, html {
       height: 100%;
@@ -26,7 +50,7 @@
     }
 
     .sent {
-      background-color: #dcf8c6;
+      background-color: #c6f7f8;
       align-self: flex-end;
     }
 
@@ -60,6 +84,19 @@
       display: flex;
       flex-direction: column;
     }
+    .message-time {
+    font-size: 0.8rem;
+    color: rgb(10, 4, 4);
+    font-style: italic;
+    margin-top: -10px;
+}
+
+.right-align {
+    text-align: right;
+    float: right;
+    display: block;
+}
+
   </style>
 {% endblock %}
 
@@ -87,35 +124,48 @@
             </div>
           </div>
         </li> -->
-
-        {% for chat in chats %}
-          {% if chat.user == request.user %}
+    {% for chat in chats %}
+        {% if chat.user == request.user %}
+        
 
             <li class="message sent">
-          <div class="message-text">
-            <div class="message-sender">
-              <b>You</b>
-            </div>
-            <div class="message-content">
-              {{chat.message}}
-            </div>
-          </div>
-        </li>
+                <div class="message-text">
+                    <div class="message-sender">
+                        <b>You</b>
+                    </div>
+                    <div class="message-content">
+                        {{ chat.message }}
+                    </div>
+                    <div class="message-time right-align">
+                        {{ chat.created_at|date:"Y-m-d H:i" }}
+                    </div>
+                </div>
+            </li>
 
-        <li class="message received">
-          <div class="message-text">
-            <div class="message-sender">
-              <b>AI Chatbot</b>
-            </div>
-            <div class="message-content">
-              {{chat.response}}
-            </div>
-          </div>
-        </li>
+            <li class="message received">
+                <div class="message-text">
+                    <div class="message-sender">
+                        <b>AI Chatbot</b>
+                    </div>
+                    <div class="message-content">
+                        {{ chat.response }}
+                    </div>
+                    <div class="message-time right-align">
+                        {{ chat.created_at|date:"Y-m-d H:i" }}
+                    </div>
+                </div>
+            </li>
+        {% endif %}
+    {% endfor %}
 
-          {% endif %}
-        {% endfor %}
-        
+        {% if new_session %} 
+    <!-- Display "New Chat Begins" after chat history -->
+     <li class="message system">
+      <div class="message-text text-center">
+        <b>New Chat Begins</b>
+      </div>
+    </li>
+    {% endif %} 
       </ul>
       
     </div>
@@ -188,6 +238,5 @@
         messagesList.appendChild(messageItem);
       });
   });
-
 </script>
 {% endblock %}
