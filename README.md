@@ -1,1 +1,2 @@
-## This repo conatins a chatbot builded using Djnago 
+## This repo conatins a chatbot builded using Django
+
