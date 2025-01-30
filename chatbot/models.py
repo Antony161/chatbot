@@ -9,8 +9,7 @@ class Chat(models.Model):
     message=models.TextField()
     response=models.TextField()
     created_at=models.DateTimeField(auto_now_add=True)
-    session_id = models.CharField(max_length=255)
 
 
     def __str__(self):
-        return f"{self.user.username}:{self.message}:{self.session_id}"
+        return f"{self.user.username}:{self.message}"
