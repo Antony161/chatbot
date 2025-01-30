@@ -1,0 +1,33 @@
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore virtual environments
+env/
+venv/
+
+# Ignore local configuration files
+*.sqlite3  # Ignore SQLite database files if you're using them for development
+.env        # Keep your environment variables out of the image
+
+# Ignore unnecessary IDE/project files
+*.log
+*.idea/
+.vscode/
+*.swp
+
+# Ignore temporary files
+.DS_Store
+*.bak
+
+# Ignore git files
+.git/
+.gitignore
+
+# Ignore static and media files if not needed in the image
+static/
+media/
+
+# Ignore Docker Compose override files
+docker-compose.override.yml
