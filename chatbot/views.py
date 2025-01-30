@@ -15,6 +15,35 @@ from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain_community.embeddings import OllamaEmbeddings
 import json
+from llama_index.core import SimpleDirectoryReader
+from llama_index.core import Document
+from llama_index.core import VectorStoreIndex
+from llama_index.core import Settings
+from llama_index.core import StorageContext
+from llama_index.core import StorageContext, load_index_from_storage
+from pathlib import Path
+
+
+
+index_folder="/home/antonyeyyo/django_chatbot/chatbot/index_store"
+
+uploaded_folder="/home/antonyeyyo/django_chatbot/chatbot/uploaded_documents"
+
+
+
+def ask_llama_rag(message):
+    print("rag")
+    Settings.llm=ChatOllama(model="llama3.2",temperature=0.1)
+    Settings.embed_model="local:BAAI/bge-small-en-v1.5"
+    storage_context = StorageContext.from_defaults(persist_dir="index_store")
+    index = load_index_from_storage(storage_context)
+    chat_engine = index.as_chat_engine()
+    response = chat_engine.chat(message)
+    response=str(response)
+    return response
+
+
+
 
 
 # Create your views here
@@ -62,10 +91,6 @@ prompt=custom_prompt,
 )
 
 
-def ask_llama(message):
-    response=conversation_buf.invoke(message)
-    return response
-
 
 
 def chatbot(request):
@@ -77,15 +102,49 @@ def chatbot(request):
     if request.method=='POST':
         message=request.POST.get('message')
         # prompt=JsonResponse({"model":"llam3.2:3b",'prompt':message})
-        response=ask_llama(message)['response']
-        # response=query_model(message)
+        if os.path.exists(index_folder):
+            response=ask_llama_rag(message)
+        else:
+            response=query_model(message)
         chat=Chat(user=request.user,message=message,response=response,created_at=timezone.now())
         chat.save()
         return JsonResponse({'message':message,'response':response})
     return render(request,'chatbot.html',{'chats':chats})
 
 
-import uuid
+from .forms import DocumentUploadForm
+from .models import UploadedDocument
+import os 
+
+def upload_document(request):
+    if request.method == 'POST':
+        form = DocumentUploadForm(request.POST, request.FILES)  # Get POST data and uploaded file
+        if form.is_valid():
+            doc = form.save()  # Save the document to the database and storage
+            file_path = os.path.join('uploaded_documents', doc.file.name)  # Get the full file path
+            print(f"File saved at: {file_path}")  # Debugging: Check the file path
+            # Define the folder path
+            folder_path = Path("/home/antonyeyyo/django_chatbot/chatbot/uploaded_documents/")
+
+            # Get all PDF files in the folder
+            pdf_files = list(folder_path.glob("*.pdf"))
+
+            documents=SimpleDirectoryReader(input_files=[str(file) for file in pdf_files]).load_data()
+
+            document=Document(text="\n\n".join([doc.text for doc in documents]))
+            Settings.embed_model="local:BAAI/bge-small-en-v1.5"
+
+            index = VectorStoreIndex.from_documents([document],
+                                                    service_context=Settings.embed_model)
+            index.storage_context.persist(persist_dir="index_store")
+
+            return redirect('chatbot')  # Redirect to a success page after upload
+
+    else:
+        form = DocumentUploadForm()  # Create a new empty form for GET requests
+    
+    return render(request, 'upload.html', {'form': form})  # Render the form to the user
+
 
 def login(request):
     if request.method=='POST':
@@ -152,5 +211,17 @@ def register(request):
     return render(request, 'register.html')
 
 def logout(request):
+    if os.path.exists(index_folder):
+        for file_name in os.listdir(index_folder):
+            file_path = os.path.join(index_folder, file_name)
+            if os.path.isfile(file_path):  # Check if it's a file
+                os.remove(file_path)  # Delete the file
+    os.rmdir(index_folder)
+    if os.path.exists(uploaded_folder):
+        for file_name in os.listdir(uploaded_folder):
+            file_path = os.path.join(uploaded_folder, file_name)
+            if os.path.isfile(file_path):  # Check if it's a file
+                os.remove(file_path)  # Delete the file
     auth.logout(request)
+
     return redirect('login')
